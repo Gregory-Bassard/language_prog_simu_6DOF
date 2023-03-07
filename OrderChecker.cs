@@ -10,8 +10,10 @@ namespace language_prog_simu_6DOF
     class OrderChecker
     {
         public bool error = false;
+        public bool running = false;
 
         private int curIndex;
+        public double[] targetPos; //x, y, z, yaw, pitch, roll
 
         private List<Variable> _variables = new List<Variable>();
         public List<Variable> Variables
@@ -22,9 +24,9 @@ namespace language_prog_simu_6DOF
 
         public bool OrderCheck(string[] words, int index)
         {
-            curIndex = index;
-            string[] args = new string[4];
-            Variable var = null;
+            this.curIndex = index;
+            double[] args = new double[3];
+            Variable? var = null;
             switch (words[0].Trim())
             {
                 case "LET":
@@ -45,7 +47,7 @@ namespace language_prog_simu_6DOF
                             LET(words[1], val);
                         else
                         {
-                            MessageBox.Show($"Line {curIndex + 1} : Syntax Error! the word {words[2]} must be written numerically or a variable", "Alert");
+                            MessageBox.Show($"Line {curIndex + 1} : Syntax Error! the word {words[2]} must be written numerically or be a variable", "Alert");
                             error = true;
                         }
                     }
@@ -68,7 +70,7 @@ namespace language_prog_simu_6DOF
                             INC(words[1], val);
                         else
                         {
-                            MessageBox.Show($"Line {curIndex + 1} : Syntax Error! the word {words[2]} must be written numerically or a variable", "Alert");
+                            MessageBox.Show($"Line {curIndex + 1} : Syntax Error! the word {words[2]} must be written numerically or be a variable", "Alert");
                             error = true;
                         }
                     }
@@ -91,12 +93,42 @@ namespace language_prog_simu_6DOF
                             MUL(words[1], val);
                         else
                         {
-                            MessageBox.Show($"Line {curIndex + 1} : Syntax Error! the word {words[2]} must be written numerically or a variable", "Alert");
+                            MessageBox.Show($"Line {curIndex + 1} : Syntax Error! the word {words[2]} must be written numerically or be a variable", "Alert");
                             error = true;
                         }
                     }
                     break;
                 case "POS_ABS":
+                    CheckNbArgs(4, words);
+
+                    //est ce un nombre convertissable en int
+                    for (int i = 1; i <= 3; i++)
+                    {
+                        if (!double.TryParse(words[i], out args[i-1]))
+                        {
+                            //est il une variable
+                            if (IsVariable(words[i], false))
+                            {
+                                args[i-1] = FindVariable(words[i]).val;
+                            }
+                            else
+                            {
+                                //est il un "*"
+                                if (IsStar(words[i], false))
+                                    args[i-1] = targetPos[i-1];
+                                else
+                                {
+                                    MessageBox.Show($"Line {curIndex + 1} : Syntax Error! the word {words[i]} must be a variable, a \'*\' or written numerically", "Alert");
+                                    error = true;
+                                }
+                            }
+                        }
+                    }
+                    if (!error)
+                    {
+                        for (int i = 0;i < 3; i++)
+                            targetPos[i] = args[i];
+                    }
                     break;
                 case "POS_REL":
                     break;
@@ -111,6 +143,7 @@ namespace language_prog_simu_6DOF
                 case "VERRIN_REL":
                     break;
                 case "RUN":
+                    running = true;
                     break;
                 case "WAIT":
                     break;
@@ -172,6 +205,22 @@ namespace language_prog_simu_6DOF
             }
             return true;
         }
+        private bool IsStar(string arg, bool msg = true)
+        {
+            if (arg.Length != 1 || arg[0] != '*')
+            {
+                if (msg)
+                {
+                    error = true;
+                    MessageBox.Show($"Line {curIndex + 1} : Syntax Error! {arg} must be a \'*\'", "Alert");
+                    return false;
+                }
+                else
+                    return false;
+            }
+            return true;
+        }
+
         private void CheckNbArgs(int nbArgs, string[] args)
         {
             if (args.Count() != nbArgs)

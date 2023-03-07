@@ -21,10 +21,11 @@ namespace language_prog_simu_6DOF
     /// </summary>
     public partial class MainWindow : Window
     {
-        private bool started = false;
         private bool error = false;
 
         private OrderChecker orderChecker;
+        private Hexapode hexapode;
+        private SerialClient serialClient;
 
         private string[] lines = new string[50];
 
@@ -32,49 +33,120 @@ namespace language_prog_simu_6DOF
 
         private const string ORDERS = "LET INC MUL POS_ABS POS_REL ROT_ABS ROT_REL RESET VERIN_ABS VERIN_REL RUN WAIT LABEL GOTO";
 
-
+        double[] pos = new double[6];
 
         public MainWindow()
         {
             InitializeComponent();
 
             orderChecker = new OrderChecker();
+            hexapode = new Hexapode();
+
+            pos[0] = hexapode.X;
+            pos[1] = hexapode.Y;
+            pos[2] = hexapode.Z;
+            pos[3] = hexapode.roll;
+            pos[4] = hexapode.pitch;
+            pos[5] = hexapode.yaw;
+
+            orderChecker.targetPos = pos;
+
+            serialClient = new SerialClient("COM3", 9600);
 
             _timer = new DispatcherTimer();
             _timer.Interval = TimeSpan.FromMilliseconds(50);
             _timer.Tick += _timer_Tick;
             _timer.Start();
+
+            serialClient.Open();
         }
 
         private void _timer_Tick(object? sender, EventArgs e)
         {
-            if (orderChecker.Variables != null)
-            {
-                List<string> items = new List<string>();
-                foreach (Variable var in orderChecker.Variables)
-                {
-                    string item = $"{var.name.Remove(0, 1)} : {var.val}";
-                    items.Add(item);
-                }
-                listbInfoData.ItemsSource = items;
-            }
+            AffichageVar(cbInfoDisplay.Text);
 
-            if (started)
+            if (orderChecker.running && serialClient.GetIsConnected())
             {
-
+                hexapode.CalculPosHexapode();
+                SendPos();
+                hexapode.Update();
             }
         }
+
+        private void AffichageVar(string? labelName)
+        {
+            if (string.IsNullOrEmpty(labelName))
+                return;
+            else
+            {
+                switch (labelName)
+                {
+                    case "Variables":
+                        if (orderChecker.Variables != null)
+                        {
+                            List<string> items = new List<string>();
+                            foreach (Variable var in orderChecker.Variables)
+                            {
+                                string item = $"{var.name.Remove(0, 1)} : {var.val}";
+                                items.Add(item);
+                            }
+                            listbInfoData.ItemsSource = items;
+                        }
+                        break;
+                    case "Positions Platforme":
+                        if (hexapode != null)
+                        {
+                            List<string> items = new List<string>()
+                            {
+                                "x : " + hexapode.X.ToString(),
+                                "y : " + hexapode.Y.ToString(),
+                                "z : " + hexapode.Z.ToString(),
+                                "yaw : " + hexapode.yaw.ToString(),
+                                "pitch : " + hexapode.pitch.ToString(),
+                                "roll : " + hexapode.roll.ToString()
+                            };
+                            listbInfoData.ItemsSource = items;
+                        }
+                        break;
+                    case "Target Positions":
+                        if (orderChecker.targetPos != null)
+                        {
+                            List<string> items = new List<string>()
+                            {
+                                "x : " + orderChecker.targetPos[0].ToString(),
+                                "y : " + orderChecker.targetPos[1].ToString(),
+                                "z : " + orderChecker.targetPos[2].ToString(),
+                                "yaw : " + orderChecker.targetPos[3].ToString(),
+                                "pitch : " + orderChecker.targetPos[4].ToString(),
+                                "roll : " + orderChecker.targetPos[5].ToString()
+                            };
+                            listbInfoData.ItemsSource = items;
+                        }
+                        break;
+                    case "Legs":
+                        if (hexapode.lengthVer != null)
+                        {
+                            List<string> items = new List<string>();
+                            for (int i = 0; i < hexapode.lengthVer.Count(); i++)
+                            {
+                                items.Add($"leg {i} : {hexapode.lengthVer[i]:0.000}");
+                            }
+                            listbInfoData.ItemsSource = items;
+                        }
+                        break;
+                }
+            }
+        }
+        public void SendPos()
+        {
+            serialClient.SendData(hexapode.GetData()); // envoie des data à l'arduino
+        }
+
         private void CheckCode()
         {
             for (int i = 0; i < lines.Length; i++)
             {
                 Parsing(lines[i], i);
-            }
-
-            //verifie si il y a eu une erreur dans l'analyse du code
-            if (!error)
-            {
-
             }
         }
         private void Parsing(string line, int index)
@@ -85,19 +157,14 @@ namespace language_prog_simu_6DOF
             orderChecker.OrderCheck(words, index);
 
         }
-        public void Restart()
-        {
-            orderChecker = new OrderChecker();
-        }
         private void btnRestart_Click(object sender, RoutedEventArgs e)
         {
-            started = false;
-            Restart();
+            orderChecker = new OrderChecker();
+            hexapode.ResetPos();
         }
 
         private void btnRun_Click(object sender, RoutedEventArgs e)
         {
-            started = true;
             lines = tbCodeZone.Text.Split('\n');
             CheckCode();
         }

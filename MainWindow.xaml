@@ -56,12 +56,8 @@
         <ComboBox x:Name="cbInfoDisplay" HorizontalAlignment="Center" VerticalAlignment="Bottom" Width="150" SelectedIndex="1" Grid.Column="2" Grid.Row="1" SelectionChanged="cbInfoDisplay_SelectionChanged">
             <Label Content="Variables"/>
             <Label Content="Positions Platforme"/>
-            <Label Content="Positions Leg 1"/>
-            <Label Content="Positions Leg 2"/>
-            <Label Content="Positions Leg 3"/>
-            <Label Content="Positions Leg 4"/>
-            <Label Content="Positions Leg 5"/>
-            <Label Content="Positions Leg 6"/>
+            <Label Content="Target Positions"/>
+            <Label Content="Legs"/>
         </ComboBox>
         <ListBox x:Name="listbInfoData" d:ItemsSource="{d:SampleData ItemCount=5}" HorizontalAlignment="Center" VerticalAlignment="Center" Width="150" Height="375" SelectedIndex="1" Grid.Column="2" Grid.Row="2"/>
     </Grid>

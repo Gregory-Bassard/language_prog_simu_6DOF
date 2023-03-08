@@ -12,7 +12,8 @@ namespace language_prog_simu_6DOF
 {
     class Hexapode
     {
-        private double height = 300;
+
+        public double height;
 
         //Plaque de base (0,0) au centre de la plaque
         public double rayVerBase; //Rayon du cercle des vérins
@@ -23,7 +24,7 @@ namespace language_prog_simu_6DOF
         public double alphaPlat; //distance angulaire entre 2 vérins voisins
         public double betaPlat;
 
-        Point3D centreRotation;
+        public Point3D centreRotation;
 
         //Degrees of freedom
         public double pitch = 0; //avant-arriere rotation (pitch, axe Y)
@@ -33,26 +34,37 @@ namespace language_prog_simu_6DOF
         public double Y = 0;     //gauche-droite déplacement (axe Y, gauche positif)
         public double Z = 0;     //haut-bas déplacement (axe Z , haut positif)
 
+        private double resetX = 0;
+        private double resetY = 0;
+        private double resetZ = 0;
+        private double resetYaw = 0;
+        private double resetPitch = 0;
+        private double resetRoll = 0;
+
         //liste de position des verrins
         Point3D[] posVerBase = new Point3D[6]; //TODO: ne pas oublier de modifier le point de bas
         Point3D[] posVerPlat = new Point3D[6];
         Matrix3D modificationMatrix; //matrice de modification final
         public double[] lengthVer = new double[6];  //longeur verrin
-        //Calcul des angles des servos
-        public double longBrasLev = 22;//longueur du bras de levier du servo
-        public double longTringle = 174; //longueur des tringles entre la platform et la base 
-        public double[] AngleServo = new double[6];
 
-        private double speed = 15; //vitesse de déplacement du offset
+        public Hexapode(double x, double y, double z, double yaw, double pitch, double roll)
+        {
+            this.resetX = this.X = x;
+            this.resetY = this.Y = y;
+            this.resetZ = this.Z = z;
+            this.resetYaw = this.yaw = yaw;
+            this.resetPitch = this.pitch = pitch;
+            this.resetRoll = this.roll = roll;
+        }
 
         public void ResetPos()
         {
-            X = 0;
-            Y = 0;
-            Z = 0;
-            pitch = 0;
-            roll = 0;
-            yaw = 0;
+            X = resetX;
+            Y = resetY;
+            Z = resetZ;
+            yaw = resetYaw;
+            pitch = resetPitch;
+            roll = resetRoll;
         }
         public void Update()
         {
@@ -89,7 +101,6 @@ namespace language_prog_simu_6DOF
             centreRotation.Y += Y - centreRotation.Y;
             centreRotation.Z += Z + height - centreRotation.Z;
         }
-
         public string GetData()
         {
             for (int i = 0; i < 6; i++)
@@ -98,17 +109,7 @@ namespace language_prog_simu_6DOF
                 lengthVer[i] = lengthVer[i] > 3.3 ? 3.3 : lengthVer[i];
                 lengthVer[i] = lengthVer[i] < 0 ? 0 : lengthVer[i];
             }
-
-            string data = $"{lengthVer[0]:0.000},{lengthVer[1]:0.000},{lengthVer[2]:0.000},{lengthVer[3]:0.000},{lengthVer[4]:0.000},{lengthVer[5]:0.000}";
-            Debug.WriteLine(data);
-            return data;
-        }
-
-        private void setDefault()//set la pose de base de l'exapode
-        {
-            pitch = 0;
-            yaw = 0;
-            roll = 0;
+            return $"{lengthVer[0]:0.000},{lengthVer[1]:0.000},{lengthVer[2]:0.000},{lengthVer[3]:0.000},{lengthVer[4]:0.000},{lengthVer[5]:0.000}";
         }
     }
 }

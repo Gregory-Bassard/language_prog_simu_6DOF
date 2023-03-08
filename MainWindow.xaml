@@ -53,7 +53,7 @@
 
         <TextBox x:Name="tbCodeZone" HorizontalAlignment="Center" TextWrapping="Wrap" Text="" AcceptsReturn="True" VerticalScrollBarVisibility="Visible" VerticalAlignment="Center" Width="325" Height="375" Grid.Column="1" Grid.Row="2"/>
 
-        <ComboBox x:Name="cbInfoDisplay" HorizontalAlignment="Center" VerticalAlignment="Bottom" Width="150" SelectedIndex="1" Grid.Column="2" Grid.Row="1" SelectionChanged="cbInfoDisplay_SelectionChanged">
+        <ComboBox x:Name="cbInfoDisplay" HorizontalAlignment="Center" VerticalAlignment="Bottom" Width="150" SelectedIndex="2" Grid.Column="2" Grid.Row="1" SelectionChanged="cbInfoDisplay_SelectionChanged">
             <Label Content="Variables"/>
             <Label Content="Positions Platforme"/>
             <Label Content="Target Positions"/>

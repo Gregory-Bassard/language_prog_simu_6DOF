@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.IO.Ports;
 using System.Linq;
 using System.Text;
@@ -46,7 +47,8 @@ namespace language_prog_simu_6DOF
         public void SendData(string data)
         {
             serialPort.WriteLine(data);
-            //serialPort.DiscardInBuffer();
+            Debug.WriteLine("Sending : " + data);
+            serialPort.DiscardInBuffer();
         }
         public bool GetIsConnected()
         {

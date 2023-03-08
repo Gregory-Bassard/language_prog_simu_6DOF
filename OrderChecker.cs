@@ -13,7 +13,8 @@ namespace language_prog_simu_6DOF
         public bool running = false;
 
         private int curIndex;
-        public double[] targetPos; //x, y, z, yaw, pitch, roll
+        public double[] targetPos = new double[6]; //x, y, z, yaw, pitch, roll
+        public double[] limitsPos = new double[6]; //x, y, z, yaw, pitch, roll
 
         private List<Variable> _variables = new List<Variable>();
         public List<Variable> Variables
@@ -52,6 +53,7 @@ namespace language_prog_simu_6DOF
                         }
                     }
                     break;
+
                 case "INC":
                     //Nombre arguments = 3 ?
                     CheckNbArgs(3, words);
@@ -75,6 +77,7 @@ namespace language_prog_simu_6DOF
                         }
                     }
                     break;
+
                 case "MUL":
                     //Nombre arguments = 3 ?
                     CheckNbArgs(3, words);
@@ -98,67 +101,171 @@ namespace language_prog_simu_6DOF
                         }
                     }
                     break;
-                case "POS_ABS":
-                    CheckNbArgs(4, words);
 
-                    //est ce un nombre convertissable en int
-                    for (int i = 1; i <= 3; i++)
+                case "POS_ABS":
+                    if(CheckNbArgs(4, words))
                     {
-                        if (!double.TryParse(words[i], out args[i-1]))
+                        //est ce un nombre convertissable en int
+                        for (int i = 1; i <= 3; i++)
                         {
-                            //est il une variable
-                            if (IsVariable(words[i], false))
+                            if (!double.TryParse(words[i], out args[i - 1]))
                             {
-                                args[i-1] = FindVariable(words[i]).val;
-                            }
-                            else
-                            {
-                                //est il un "*"
-                                if (IsStar(words[i], false))
-                                    args[i-1] = targetPos[i-1];
+                                //est il une variable
+                                if (IsVariable(words[i], false))
+                                {
+                                    args[i - 1] = FindVariable(words[i]).val;
+                                }
                                 else
                                 {
-                                    MessageBox.Show($"Line {curIndex + 1} : Syntax Error! the word {words[i]} must be a variable, a \'*\' or written numerically", "Alert");
-                                    error = true;
+                                    //est il un "*"
+                                    if (IsStar(words[i].Trim(), false))
+                                        args[i - 1] = targetPos[i - 1];
+                                    else
+                                    {
+                                        MessageBox.Show($"Line {curIndex + 1} : Syntax Error! the word {words[i]} must be a variable, a \'*\' or written numerically", "Alert");
+                                        error = true;
+                                    }
                                 }
                             }
                         }
-                    }
-                    if (!error)
-                    {
-                        for (int i = 0;i < 3; i++)
-                            targetPos[i] = args[i];
+                        if (!error)
+                        {
+                            for (int i = 0; i < 3; i++)
+                                targetPos[i] = args[i];
+                        }
                     }
                     break;
+
                 case "POS_REL":
+                    if(CheckNbArgs(4, words))
+                    {
+                        //est ce un nombre convertissable en int
+                        for (int i = 1; i <= 3; i++)
+                        {
+                            if (!double.TryParse(words[i], out args[i - 1]))
+                            {
+                                //est il une variable
+                                if (IsVariable(words[i], false))
+                                {
+                                    args[i - 1] = FindVariable(words[i]).val;
+                                }
+                                else
+                                {
+                                    //est il un "*"
+                                    if (IsStar(words[i].Trim(), false))
+                                        args[i - 1] = 0;
+                                    else
+                                    {
+                                        MessageBox.Show($"Line {curIndex + 1} : Syntax Error! the word {words[i]} must be a variable, a \'*\' or written numerically", "Alert");
+                                        error = true;
+                                    }
+                                }
+                            }
+                        }
+                        if (!error)
+                        {
+                            for (int i = 0; i < 3; i++)
+                                targetPos[i] += args[i];
+                        }
+                    }                    
                     break;
+
                 case "ROT_ABS":
+                    if (CheckNbArgs(4, words))
+                    {
+                        //est ce un nombre convertissable en int
+                        for (int i = 1; i <= 3; i++)
+                        {
+                            if (!double.TryParse(words[i], out args[i - 1]))
+                            {
+                                //est il une variable
+                                if (IsVariable(words[i], false))
+                                {
+                                    args[i - 1] = FindVariable(words[i]).val;
+                                }
+                                else
+                                {
+                                    //est il un "*"
+                                    if (IsStar(words[i].Trim(), false))
+                                        args[i - 1] = targetPos[i + 2];
+                                    else
+                                    {
+                                        MessageBox.Show($"Line {curIndex + 1} : Syntax Error! the word {words[i]} must be a variable, a \'*\' or written numerically", "Alert");
+                                        error = true;
+                                    }
+                                }
+                            }
+                        }
+                        if (!error)
+                        {
+                            for (int i = 0; i < 3; i++)
+                                targetPos[i + 3] = args[i];
+                        }
+                    }          
                     break;
+
                 case "ROT_REL":
+                    if (CheckNbArgs(4, words))
+                    {
+                        //est ce un nombre convertissable en int
+                        for (int i = 1; i <= 3; i++)
+                        {
+                            if (!double.TryParse(words[i], out args[i - 1]))
+                            {
+                                //est il une variable
+                                if (IsVariable(words[i], false))
+                                {
+                                    args[i - 1] = FindVariable(words[i]).val;
+                                }
+                                else
+                                {
+                                    //est il un "*"
+                                    if (IsStar(words[i].Trim(), false))
+                                        args[i - 1] = 0;
+                                    else
+                                    {
+                                        MessageBox.Show($"Line {curIndex + 1} : Syntax Error! the word {words[i]} must be a variable, a \'*\' or written numerically", "Alert");
+                                        error = true;
+                                    }
+                                }
+                            }
+                        }
+                        if (!error)
+                        {
+                            for (int i = 0; i < 3; i++)
+                                targetPos[i + 3] += args[i];
+                        }
+                    }                    
                     break;
+
                 case "RESET":
+                    for (int i = 0; i < 6; i++)
+                        targetPos[i] = 0;
                     break;
+
                 case "VERRIN_ABS":
                     break;
+
                 case "VERRIN_REL":
                     break;
+
                 case "RUN":
                     running = true;
                     break;
+
                 case "WAIT":
                     break;
+
                 case "LABEL":
                     break;
+
                 case "GOTO":
                     break;
+
                 default: //le 1er mot ne correspond à aucun ordres
                     error = true;
                     MessageBox.Show($"Line {curIndex + 1} : Syntax Error! the order word may have been badly written", "Alert");
                     break;
-            }
-            if (!error)
-            {
-
             }
             return error;
         }
@@ -181,6 +288,16 @@ namespace language_prog_simu_6DOF
         {
             Variable var = FindVariable(varName);
             var.val *= valInc;
+        }
+        public double[] GetTargetPos(double[] limitPosPlus, double[] limitPosMinus)
+        {
+            //Verificatation des limits
+            for (int i = 0; i < 6; i++)
+            {
+                if (targetPos[i] > limitPosPlus[i] || targetPos[i] < limitPosMinus[i])
+                    targetPos[i] = limitPosPlus[i];
+            }
+            return targetPos;
         }
         private Variable FindVariable(string arg)
         {
@@ -207,7 +324,7 @@ namespace language_prog_simu_6DOF
         }
         private bool IsStar(string arg, bool msg = true)
         {
-            if (arg.Length != 1 || arg[0] != '*')
+            if (arg.Length != 1 || arg != "*")
             {
                 if (msg)
                 {
@@ -221,13 +338,15 @@ namespace language_prog_simu_6DOF
             return true;
         }
 
-        private void CheckNbArgs(int nbArgs, string[] args)
+        private bool CheckNbArgs(int nbArgs, string[] args)
         {
             if (args.Count() != nbArgs)
             {
                 error = true;
                 MessageBox.Show($"Line {curIndex + 1} : Syntax Error! the number of arguments is incorrect", "Alert");
+                return false;
             }
+            return true;
         }
     }
 }

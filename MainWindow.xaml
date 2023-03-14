@@ -24,6 +24,7 @@
             <Menu DockPanel.Dock="Top">
                 <MenuItem Header="File">
                     <MenuItem x:Name="miSave" Header="Save" Click="miSave_Click"/>
+                    <MenuItem x:Name="miSaveAs" Header="Save As" Click="miSaveAs_Click"/>
                     <MenuItem x:Name="miOpen" Header="Open" Click="miOpen_Click"/>
                 </MenuItem>
                 <MenuItem Header="Debug">
@@ -37,7 +38,7 @@
         <Button x:Name="btnRun" Content="Run" HorizontalAlignment="Center" VerticalAlignment="Bottom" Width="60" Grid.Column="1" Grid.Row="1" Click="btnRun_Click"/>
 
         <Label x:Name="lbSpeed" Content="Speed" HorizontalAlignment="Center" Margin="0,50,0,0" VerticalAlignment="Top" Grid.Column="0" Grid.Row="2"/>
-        <Slider x:Name="slSpeed" HorizontalAlignment="Center" VerticalAlignment="Top" Width="150" Grid.Column="0" Grid.Row="2" Margin="0,75,0,0" Minimum="0" Maximum="2" SmallChange="0.1" Value="1" ValueChanged="slSpeed_ValueChanged"/>
+        <Slider x:Name="slSpeed" HorizontalAlignment="Center" VerticalAlignment="Top" Width="150" Grid.Column="0" Grid.Row="2" Margin="0,75,0,0" Minimum="0.01" SmallChange="0.1" Value="1" ValueChanged="slSpeed_ValueChanged" Maximum="2"/>
 
 
         <Label x:Name="lbStepSec" Content="Step/sec" HorizontalAlignment="Center" Margin="0,175,0,0" VerticalAlignment="Top" Grid.Column="0" Grid.Row="2"/>
@@ -51,7 +52,7 @@
             </Button>
         </StackPanel>
 
-        <TextBox x:Name="tbCodeZone" HorizontalAlignment="Center" TextWrapping="Wrap" Text="" AcceptsReturn="True" VerticalScrollBarVisibility="Visible" VerticalAlignment="Center" Width="325" Height="375" Grid.Column="1" Grid.Row="2"/>
+        <TextBox x:Name="tbCodeZone" HorizontalAlignment="Center" TextWrapping="Wrap" Text="" AcceptsReturn="True" AcceptsTab="True" VerticalScrollBarVisibility="Visible" VerticalAlignment="Center" Width="325" Height="375" Grid.Column="1" Grid.Row="2"/>
 
         <ComboBox x:Name="cbInfoDisplay" HorizontalAlignment="Center" VerticalAlignment="Bottom" Width="150" SelectedIndex="2" Grid.Column="2" Grid.Row="1" SelectionChanged="cbInfoDisplay_SelectionChanged">
             <Label Content="Variables"/>

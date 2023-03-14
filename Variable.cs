@@ -10,8 +10,8 @@ namespace language_prog_simu_6DOF
     {
         public int id { get; set; }
         public string name { get; set; }
-        public int val { get; set; }
-        public Variable(int id, string name, int val)
+        public double val { get; set; }
+        public Variable(int id, string name, double val)
         {
             this.id = id;
             this.name = name;

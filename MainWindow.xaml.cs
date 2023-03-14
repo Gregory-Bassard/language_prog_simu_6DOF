@@ -1,8 +1,11 @@
-﻿using System;
+﻿
+using Microsoft.Win32;
+using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
+using System.Reflection.Emit;
 using System.Text;
 using System.Threading.Tasks;
 using System.Windows;
@@ -24,7 +27,7 @@ namespace language_prog_simu_6DOF
     /// </summary>
     public partial class MainWindow : Window
     {
-        private bool error = false;
+        private bool running = false;
 
         private OrderChecker orderChecker;
         private Hexapode hexapode;
@@ -33,15 +36,22 @@ namespace language_prog_simu_6DOF
         private string[] lines = new string[50];
         private int lineIndex = 0;
 
+        private int nbStep = 10;
+        private double speed = 1;
+
+        private int stepCount = 1;
+
         private DispatcherTimer _timer;
         private double time;
 
         private const string ORDERS = "LET INC MUL POS_ABS POS_REL ROT_ABS ROT_REL RESET VERIN_ABS VERIN_REL RUN WAIT LABEL GOTO";
 
-        double[] pos = new double[6];
+        private double[] actPos = new double[6];
 
-        double[] limitPosPlus = new double[6];
-        double[] limitPosMinus = new double[6];
+        private double[] limitPosPlus = new double[6];
+        private double[] limitPosMinus = new double[6];
+
+        double[] deltaPos = new double[6];
 
         public MainWindow()
         {
@@ -53,7 +63,7 @@ namespace language_prog_simu_6DOF
             ConfigIni();
 
             _timer = new DispatcherTimer();
-            _timer.Interval = TimeSpan.FromMilliseconds(50);
+            _timer.Interval = TimeSpan.FromMilliseconds(200);
             _timer.Tick += _timer_Tick;
             _timer.Start();
 
@@ -62,9 +72,12 @@ namespace language_prog_simu_6DOF
 
         private void _timer_Tick(object? sender, EventArgs e)
         {
-            AffichageVar(cbInfoDisplay.Text);
+            DisplayVar(cbInfoDisplay.Text);
+            tbStepSec.Text = nbStep.ToString();
 
             time += _timer.Interval.TotalSeconds;
+
+            _timer.Interval = TimeSpan.FromMilliseconds(500 / speed);
 
             if (serialClient.GetIsConnected())
             {
@@ -73,15 +86,30 @@ namespace language_prog_simu_6DOF
                 hexapode.Update();
                 Debug.WriteLine($"x : {hexapode.X}, y : {hexapode.Y}, z : {hexapode.Z}, yaw : {hexapode.yaw}, pitch : {hexapode.pitch}, roll : {hexapode.roll}");
 
-                if (orderChecker.running) //TODO : savoir quand la plateforme à atteint sa position target
+                if (running)
                 {
-                    orderChecker.running = false;
-                    CheckCode();
+                    hexapode.X += deltaPos[0];
+                    hexapode.Y += deltaPos[1];
+                    hexapode.Z += deltaPos[2];
+                    hexapode.yaw += deltaPos[3];
+                    hexapode.pitch += deltaPos[4];
+                    hexapode.roll += deltaPos[5];
+
+                    if (stepCount == nbStep)
+                    {
+                        running = false;
+                        orderChecker.running = false;
+                        stepCount = 1;
+                        actPos = hexapode.GetPos();
+                        CheckCode();
+                    }
+                    else
+                        stepCount++;
                 }
             }
         }
 
-        private void AffichageVar(string? labelName)
+        private void DisplayVar(string? labelName)
         {
             if (string.IsNullOrEmpty(labelName))
                 return;
@@ -148,35 +176,57 @@ namespace language_prog_simu_6DOF
         public void SendPos()
         {
             string data = hexapode.GetData();
-            using (StreamWriter sw = File.AppendText(@"./Debug.csv"))
-                sw.WriteLine($"{time};{data.Replace(",", ";")};{hexapode.X};{hexapode.Y};{hexapode.Z};{hexapode.yaw};{hexapode.pitch};{hexapode.roll}");
-            serialClient.SendData(data); // envoie des data à l'arduino
+            if (data != null && data != "0.000,0.000,0.000,0.000,0.000,0.000")
+            {
+                using (StreamWriter sw = File.AppendText(@"./Debug.csv"))
+                    sw.WriteLine($"{time};{data.Replace(",", ";")};{hexapode.X};{hexapode.Y};{hexapode.Z};{hexapode.yaw};{hexapode.pitch};{hexapode.roll}");
+                serialClient.SendData(data); // envoie des data à l'arduino
+            }
         }
-
+        private void Interpolate(double[] actualPos, double[] targetPos, int nbStep)
+        {
+            for (int i = 0;i < 6; i++)
+                deltaPos[i] = (targetPos[i] - actualPos[i]) / nbStep;
+        }
         private void CheckCode()
         {
             while (!orderChecker.running && lineIndex < lines.Count())
             {
-                Parsing(lines[lineIndex], lineIndex);
+                if (lines[lineIndex][0] != '#')
+                    Parsing(lines[lineIndex]);
                 lineIndex++;
             }
             if (orderChecker.running)
             {
-                double[] targetPos = orderChecker.GetTargetPos(limitPosPlus, limitPosMinus);
-                hexapode.X = targetPos[0];
-                hexapode.Y = targetPos[1];
-                hexapode.Z = targetPos[2];
-                hexapode.yaw = targetPos[3];
-                hexapode.pitch = targetPos[4];
-                hexapode.roll = targetPos[5];
+                var result = MessageBoxResult.Yes;
+                if (orderChecker.NormalizeTargetPos(limitPosPlus, limitPosMinus))
+                    result = MessageBox.Show($"Warning : Work area overrun.\r Do you want to stop the program ?", "Alert", MessageBoxButton.YesNo);
+                if (result == MessageBoxResult.No)
+                {
+                    Interpolate(actPos, orderChecker.targetPos, nbStep);
+                    running = true;
+                }
+                else
+                    Restart();
             }
         }
-        private void Parsing(string line, int index)
+        private void Parsing(string line)
         {
             //Verification du 1er mot de la ligne
-            string[] words = line.Split(' ');
+            string[] words = line.Replace("\r", string.Empty).Replace("\n", string.Empty).Replace("\t", string.Empty).Split(' ');
+            
+            foreach (string word in words)
+                if (word.Contains(" ") && word.Length <= 1 || word == string.Empty && word.Length <= 1)
+                    words = words.Where(w => w != word).ToArray();
+                //else if (word.Contains(" ") && word.Length > 1)
+                //    word.Replace(" ", string.Empty);
 
-            orderChecker.OrderCheck(words, index);
+            orderChecker.OrderCheck(words, lineIndex);
+
+            if (orderChecker.curIndex != lineIndex)
+            {
+                lineIndex = orderChecker.curIndex;
+            }
         }
         private void ConfigIni()
         {
@@ -185,6 +235,7 @@ namespace language_prog_simu_6DOF
             int portSpeed = 0;
             string port = "";
             double rayVerBase = 0.00, alphaBase = 0.00, betaBase = 0.00, rayVerPlat = 0.00, alphaPlat = 0.00, betaPlat = 0.00, height = 0.00;
+            double[] startPos = new double[6];
 
             foreach (string line in confLines)
             {
@@ -210,6 +261,14 @@ namespace language_prog_simu_6DOF
                         case "height":
                             height = Convert.ToDouble(result[1]);
                             break;
+                        case "startPos":
+                            for (int i = 0; i < 6; i++)
+                            {
+                                actPos[i] = double.Parse(result[1].Split(',')[i]);
+                                startPos[i] = double.Parse(result[1].Split(',')[i]);
+                            }
+                                
+                            break;
                         case "limitPosPlus":
                             for (int i = 0; i < 6; i++)
                                 limitPosPlus[i] = double.Parse(result[1].Split(',')[i]);
@@ -227,18 +286,12 @@ namespace language_prog_simu_6DOF
                     }
                 }
             }
-            Init(portSpeed, port, rayVerBase, alphaBase, betaBase, rayVerPlat, alphaPlat, betaPlat, height);
+            Init(portSpeed, port, rayVerBase, alphaBase, betaBase, rayVerPlat, alphaPlat, betaPlat, height, startPos);
         }
-        private void Init(int portSpeed, string port, double rayVerBase, double alphaBase, double betaBase, double rayVerPlat, double alphaPlat, double betaPlat, double height)
+        private void Init(int portSpeed, string port, double rayVerBase, double alphaBase, double betaBase, double rayVerPlat, double alphaPlat, double betaPlat, double height, double[] startPos)
         {
             orderChecker = new OrderChecker();
-            hexapode = new Hexapode(0, 0, 0, 0, 0, 0);
-            pos[0] = hexapode.X;
-            pos[1] = hexapode.Y;
-            pos[2] = hexapode.Z;
-            pos[3] = hexapode.roll;
-            pos[4] = hexapode.pitch;
-            pos[5] = hexapode.yaw;
+            hexapode = new Hexapode(startPos);
 
             hexapode.rayVerBase = rayVerBase;
             hexapode.alphaBase = alphaBase;
@@ -249,36 +302,48 @@ namespace language_prog_simu_6DOF
             hexapode.height = height;
             hexapode.centreRotation.Z = height;
 
-            orderChecker.targetPos = pos;
+            orderChecker.targetPos = startPos;
 
             serialClient = new SerialClient(port, portSpeed);
         }
         private void btnRestart_Click(object sender, RoutedEventArgs e)
         {
+            Restart();
+        }
+
+        private void Restart()
+        {
+            serialClient.Close();
+            _timer.Stop();
             ConfigIni();
-            tbCodeZone.Text = "";
+            _timer.Start();
+            serialClient.Open();
+            //tbCodeZone.Text = ""; //a voire
         }
 
         private void btnRun_Click(object sender, RoutedEventArgs e)
         {
             lines = tbCodeZone.Text.Split('\n');
             lineIndex = 0;
+            orderChecker.labels = new List<Tuple<string, int>>();
+            for (int i = 0; i < lines.Length; i++)
+                orderChecker.CreateLabel(lines[i].Split(' '), i);
             CheckCode();
         }
 
         private void slSpeed_ValueChanged(object sender, RoutedPropertyChangedEventArgs<double> e)
         {
-            //TODO : Speed Slider Value Change
+            speed = e.NewValue;
         }
 
         private void btnDecrease_Click(object sender, RoutedEventArgs e)
         {
-
+            nbStep--;
         }
 
         private void btnIncrease_Click(object sender, RoutedEventArgs e)
         {
-
+            nbStep++;
         }
 
         private void cbInfoDisplay_SelectionChanged(object sender, SelectionChangedEventArgs e)
@@ -288,12 +353,42 @@ namespace language_prog_simu_6DOF
 
         private void miSave_Click(object sender, RoutedEventArgs e)
         {
+            
+        }
 
+        private void miSaveAs_Click(object sender, RoutedEventArgs e)
+        {
+            SaveAs();
+        }
+
+        private void SaveAs()
+        {
+            string path = Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments) + "\\Sim Files";
+
+            Directory.CreateDirectory(path);
+
+            SaveFileDialog dlg = new SaveFileDialog();
+            dlg.Filter = "simulator file(*.sim)|*.sim";
+            dlg.InitialDirectory = path;
+            dlg.DefaultExt = ".sim";
+            if (dlg.ShowDialog() == true)
+            {
+                File.WriteAllText(dlg.FileName, tbCodeZone.Text);
+            }
         }
 
         private void miOpen_Click(object sender, RoutedEventArgs e)
         {
+            string path = Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments) + "\\Sim Files";
 
+            OpenFileDialog ofd = new OpenFileDialog();
+            ofd.Filter = "simulator file(*.sim)|*.sim";
+            ofd.Multiselect = false;
+            ofd.InitialDirectory = path;
+            if (ofd.ShowDialog() == true)
+            {
+                tbCodeZone.Text = File.ReadAllText(ofd.FileName);
+            }
         }
 
         private void miStep_Click(object sender, RoutedEventArgs e)

@@ -57,6 +57,16 @@ namespace language_prog_simu_6DOF
             this.resetRoll = this.roll = roll;
         }
 
+        public Hexapode(double[] pos)   
+        {
+            this.resetX = this.X = pos[0];
+            this.resetY = this.Y = pos[1];
+            this.resetZ = this.Z = pos[2];
+            this.resetYaw = this.yaw = pos[3];
+            this.resetPitch = this.pitch = pos[4];
+            this.resetRoll = this.roll = pos[5];
+        }
+
         public void ResetPos()
         {
             X = resetX;
@@ -110,6 +120,18 @@ namespace language_prog_simu_6DOF
                 lengthVer[i] = lengthVer[i] < 0 ? 0 : lengthVer[i];
             }
             return $"{lengthVer[0]:0.000},{lengthVer[1]:0.000},{lengthVer[2]:0.000},{lengthVer[3]:0.000},{lengthVer[4]:0.000},{lengthVer[5]:0.000}";
+        }
+        public double[] GetPos()
+        {
+            double[] pos = new double[6];
+            pos[0] = X;
+            pos[1] = Y;
+            pos[2] = Z;
+            pos[3] = yaw;
+            pos[4] = pitch;
+            pos[5] = roll;
+
+            return pos;
         }
     }
 }

@@ -37,9 +37,9 @@
         <DockPanel VerticalAlignment="Top" HorizontalAlignment="Left" Grid.Column="0" Grid.Row="0">
             <Menu DockPanel.Dock="Top">
                 <MenuItem Header="File">
-                    <MenuItem x:Name="miSave" Header="Save" Click="miSave_Click" InputGestureText="Ctrl+S"/>
+                    <MenuItem x:Name="miSave" Header="Save" Click="miSave_Click"/>
                     <MenuItem x:Name="miSaveAs" Header="Save As" Click="miSaveAs_Click"/>
-                    <MenuItem x:Name="miOpen" Header="Open" Click="miOpen_Click" InputGestureText="Ctrl+O"/>
+                    <MenuItem x:Name="miOpen" Header="Open" Click="miOpen_Click"/>
                     <MenuItem x:Name="miExportCSV" Header="Export data" Click="miExportCSV_Click"/>
                 </MenuItem>
                 <MenuItem Header="Debug">
@@ -68,6 +68,8 @@
         </StackPanel>
 
         <TextBox x:Name="tbCodeZone" HorizontalAlignment="Center" TextWrapping="Wrap" Text="" AcceptsReturn="True" AcceptsTab="True" VerticalScrollBarVisibility="Visible" VerticalAlignment="Center" Width="325" Height="375" Grid.Column="1" Grid.Row="2"/>
+
+        <StackPanel x:Name="spLabelsList" Visibility="Hidden" HorizontalAlignment="Center" VerticalAlignment="Center" Width="325" Height="375" Grid.Column="1" Grid.Row="2"/>
 
         <ComboBox x:Name="cbInfoDisplay" HorizontalAlignment="Center" VerticalAlignment="Bottom" Width="150" SelectedIndex="2" Grid.Column="2" Grid.Row="1" SelectionChanged="cbInfoDisplay_SelectionChanged">
             <Label Content="Variables"/>

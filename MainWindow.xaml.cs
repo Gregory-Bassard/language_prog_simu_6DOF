@@ -20,6 +20,7 @@ using System.Windows.Media.Imaging;
 using System.Windows.Navigation;
 using System.Windows.Shapes;
 using System.Windows.Threading;
+using Label = System.Windows.Controls.Label;
 
 namespace language_prog_simu_6DOF
 {
@@ -235,6 +236,14 @@ namespace language_prog_simu_6DOF
 
             if (serialClient.GetIsConnected())
             {
+                if (btnRun.Content.ToString() == "Next")
+                    foreach (Label label in spLabelsList.Children)
+                        if (label.Name == $"lb{lineIndex}")
+                            label.Background = Brushes.Beige;
+                        else
+                            label.Background = Brushes.Transparent;
+
+
                 if (running)
                 {
                     hexapode.X += deltaPos[0];
@@ -251,7 +260,19 @@ namespace language_prog_simu_6DOF
                         orderChecker.running = false;
                         stepCount = 1;
                         actPos = hexapode.GetPos();
-                        CheckCode();
+                        if (btnRun.Content.ToString() == "Run") 
+                            CheckCode();
+                        //else if (btnRun.Content.ToString() == "Next")
+                        //    if (lineIndex + 1 >= lines.Length)
+                        //    {
+                        //        btnRun.Content = "Run";
+
+                        //        tbCodeZone.Visibility = Visibility.Visible;
+                        //        spLabelsList.Visibility = Visibility.Hidden;
+
+                        //        miStep.IsEnabled = true;
+                        //        miStepLine.IsEnabled = true;
+                        //    }
                     }
                     else
                         stepCount++;
@@ -327,7 +348,7 @@ namespace language_prog_simu_6DOF
         }
         private void CheckCode()
         {
-            while (!orderChecker.running && lineIndex < lines.Count())
+            while (!orderChecker.running && lineIndex < lines.Count() && lines[0] != null)
             {
                 if (lines[lineIndex][0] != '#')
                     Parsing(lines[lineIndex]);
@@ -347,6 +368,30 @@ namespace language_prog_simu_6DOF
                 else
                     Restart();
             }
+        }
+        private void CheckDebugCode()
+        {
+            if (!orderChecker.running && lineIndex < lines.Count() && lines[0] != null)
+            {
+                while (lines[lineIndex][0] == '#')
+                    lineIndex++;
+                Parsing(lines[lineIndex]);
+            }
+            if (orderChecker.running)
+            {
+                var result = MessageBoxResult.No;
+                if (orderChecker.NormalizeTargetPos(limitPosPlus, limitPosMinus))
+                    result = MessageBox.Show($"Warning : Work area overrun.\r Do you want to stop the program ?", "Alert", MessageBoxButton.YesNo);
+                if (result == MessageBoxResult.No)
+                {
+                    Interpolate(actPos, orderChecker.targetPos, nbStep, orderChecker.runningTime);
+                    dt1 = DateTime.Now;
+                    running = true;
+                }
+                else
+                    Restart();
+            }
+
         }
         private void Parsing(string line)
         {
@@ -374,7 +419,7 @@ namespace language_prog_simu_6DOF
             dlg.Filter = filter + "|*" + ext;
             dlg.InitialDirectory = path;
             dlg.DefaultExt = ext;
-            dlg.FileName = DateTime.Now.ToString("MM-dd-yyyy H:mm");
+            dlg.FileName = DateTime.Now.ToString("MM-dd-yyyy HH-mm");
             if (dlg.ShowDialog() == true)
             {
                 File.WriteAllText(dlg.FileName, tbCodeZone.Text);
@@ -388,7 +433,16 @@ namespace language_prog_simu_6DOF
             ConfigIni();
             _timer.Start();
             serialClient.Open();
+            deltaPos = new double[6];
+            running = false;
+            btnRun.Content = "Run";
+
+            tbCodeZone.Visibility = Visibility.Visible;
+            spLabelsList.Visibility = Visibility.Hidden;
+
             //tbCodeZone.Text = ""; //a voire
+            miStep.IsEnabled = true;
+            miStepLine.IsEnabled = true;
         }
         private void btnRestart_Click(object sender, RoutedEventArgs e)
         {
@@ -396,12 +450,31 @@ namespace language_prog_simu_6DOF
         }
         private void btnRun_Click(object sender, RoutedEventArgs e)
         {
-            lines = tbCodeZone.Text.Split('\n');
-            lineIndex = 0;
-            orderChecker.labels = new List<Tuple<string, int>>();
-            for (int i = 0; i < lines.Length; i++)
-                orderChecker.CreateLabel(lines[i].Split(' '), i);
-            CheckCode();
+            if (btnRun.Content.ToString() == "Run")
+            {
+                lines = tbCodeZone.Text.Split('\n');
+                lineIndex = 0;
+                orderChecker.labels = new List<Tuple<string, int>>();
+                for (int i = 0; i < lines.Length; i++)
+                    orderChecker.CreateLabel(lines[i].Split(' '), i);
+                CheckCode();
+            }
+            else if (btnRun.Content.ToString() == "Next")
+            {
+                CheckDebugCode();
+                if (lineIndex + 1 >= lines.Length && !running)
+                {
+                    btnRun.Content = "Run";
+
+                    tbCodeZone.Visibility = Visibility.Visible;
+                    spLabelsList.Visibility = Visibility.Hidden;
+
+                    miStep.IsEnabled = true;
+                    miStepLine.IsEnabled = true;
+                }
+                else
+                    lineIndex++;
+            }
         }
         private void slSpeed_ValueChanged(object sender, RoutedPropertyChangedEventArgs<double> e)
         {
@@ -471,7 +544,34 @@ namespace language_prog_simu_6DOF
         }
         private void miStepLine_Click(object sender, RoutedEventArgs e)
         {
+            btnRun.Content = "Next";
+            lines = tbCodeZone.Text.Split('\n');
 
+            tbCodeZone.Visibility = Visibility.Hidden;
+            spLabelsList.Visibility = Visibility.Visible;
+
+            spLabelsList.Children.Clear();
+
+            for (int i = 0; i < lines.Length; i++)
+            {
+                Label label = new Label();
+                label.HorizontalAlignment = HorizontalAlignment.Center;
+                label.VerticalAlignment = VerticalAlignment.Top;
+                label.Width = 300;
+                label.Height = 25;
+
+                label.Name = $"lb{i}";
+                label.Content = lines[i];
+                spLabelsList.Children.Add(label);
+            }
+
+            lineIndex = 0;
+            orderChecker.labels = new List<Tuple<string, int>>();
+            for (int i = 0; i < lines.Length; i++)
+                orderChecker.CreateLabel(lines[i].Split(' '), i);
+            miStep.IsEnabled = false;
+            miStepLine.IsEnabled = false;
+            CheckDebugCode();
         }
         private void CtrShortcut_S(object sender, ExecutedRoutedEventArgs e)
         {

@@ -14,7 +14,9 @@ namespace language_prog_simu_6DOF
     class OrderChecker
     {
         public bool error = false;
+
         public bool running = false;
+        public int runningTime = 0;
 
         private string condition = "EQ,NEQ,GT,LT,LE";
 
@@ -32,7 +34,6 @@ namespace language_prog_simu_6DOF
             get { return _variables; }
             set { _variables = value; }
         }
-
         public bool OrderCheck(string[] words, int index)
         {
             this.curIndex = index;
@@ -253,14 +254,16 @@ namespace language_prog_simu_6DOF
                         targetPos[i] = 0;
                     break;
 
-                case "VERRIN_ABS":
-                    break;
-
-                case "VERRIN_REL":
-                    break;
-
                 case "RUN":
-                    running = true;
+                    //Nombre arguments = 2 ?
+                    CheckNbArgs(2, words);
+                    if (!error)
+                    {
+                        if (int.TryParse(words[1].Trim(), out runningTime))
+                            running = true;
+                        else
+                            MessageBox.Show($"Line {curIndex + 1} : Syntax Error! the word {words[1]} must be written numerically!", "Alert");
+                    }
                     break;
 
                 case "WAIT":
@@ -376,7 +379,6 @@ namespace language_prog_simu_6DOF
             }
             return error;
         }
-
         public void CreateLabel(string[] words, int index)
         {
             if (words[0] == "LABEL")
@@ -388,7 +390,6 @@ namespace language_prog_simu_6DOF
                 labels.Add(new Tuple<string, int>(words[1].Trim(), index));
             }
         }
-
         private void LET(string name, double val)
         {
             Variable var = FindVariable(name);
@@ -494,7 +495,6 @@ namespace language_prog_simu_6DOF
             }
             return true;
         }
-
         private bool CheckNbArgs(int nbArgs, string[] args)
         {
             if (args.Count() != nbArgs)

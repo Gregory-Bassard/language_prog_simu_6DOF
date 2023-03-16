@@ -14,7 +14,6 @@ namespace language_prog_simu_6DOF
         private SerialPort serialPort;
         private string port { get; set; }
         private int portSpeed { get; set; }
-
         public SerialClient(string port, int portSpeed)
         {
             this.port = port;
@@ -47,7 +46,7 @@ namespace language_prog_simu_6DOF
         public void SendData(string data)
         {
             serialPort.WriteLine(data);
-            Debug.WriteLine("Sending : " + data);
+            //Debug.WriteLine("Sending : " + data);
             serialPort.DiscardInBuffer();
         }
         public bool GetIsConnected()

@@ -6,6 +6,7 @@ using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Reflection.Emit;
+using System.Security.Cryptography;
 using System.Text;
 using System.Threading.Tasks;
 using System.Windows;
@@ -27,6 +28,9 @@ namespace language_prog_simu_6DOF
     /// </summary>
     public partial class MainWindow : Window
     {
+        private string pathFile = "";
+
+        public DateTime dt1 = DateTime.Now;
         private bool running = false;
 
         private OrderChecker orderChecker;
@@ -36,20 +40,22 @@ namespace language_prog_simu_6DOF
         private string[] lines = new string[50];
         private int lineIndex = 0;
 
-        private int nbStep = 10;
+        private int nbStep = 2;
         private double speed = 1;
+
+        private double timerTick = 100;
 
         private int stepCount = 1;
 
         private DispatcherTimer _timer;
-        private double time;
-
-        private const string ORDERS = "LET INC MUL POS_ABS POS_REL ROT_ABS ROT_REL RESET VERIN_ABS VERIN_REL RUN WAIT LABEL GOTO";
 
         private double[] actPos = new double[6];
 
         private double[] limitPosPlus = new double[6];
         private double[] limitPosMinus = new double[6];
+
+        private double legslimitPlus = 0.00;
+        private double legslimitMinus = 0.00;
 
         double[] deltaPos = new double[6];
 
@@ -63,170 +69,11 @@ namespace language_prog_simu_6DOF
             ConfigIni();
 
             _timer = new DispatcherTimer();
-            _timer.Interval = TimeSpan.FromMilliseconds(200);
+            _timer.Interval = TimeSpan.FromMilliseconds(100);
             _timer.Tick += _timer_Tick;
             _timer.Start();
 
             serialClient.Open();
-        }
-
-        private void _timer_Tick(object? sender, EventArgs e)
-        {
-            DisplayVar(cbInfoDisplay.Text);
-            tbStepSec.Text = nbStep.ToString();
-
-            time += _timer.Interval.TotalSeconds;
-
-            _timer.Interval = TimeSpan.FromMilliseconds(500 / speed);
-
-            if (serialClient.GetIsConnected())
-            {
-                hexapode.CalculPosHexapode();
-                SendPos();
-                hexapode.Update();
-                Debug.WriteLine($"x : {hexapode.X}, y : {hexapode.Y}, z : {hexapode.Z}, yaw : {hexapode.yaw}, pitch : {hexapode.pitch}, roll : {hexapode.roll}");
-
-                if (running)
-                {
-                    hexapode.X += deltaPos[0];
-                    hexapode.Y += deltaPos[1];
-                    hexapode.Z += deltaPos[2];
-                    hexapode.yaw += deltaPos[3];
-                    hexapode.pitch += deltaPos[4];
-                    hexapode.roll += deltaPos[5];
-
-                    if (stepCount == nbStep)
-                    {
-                        running = false;
-                        orderChecker.running = false;
-                        stepCount = 1;
-                        actPos = hexapode.GetPos();
-                        CheckCode();
-                    }
-                    else
-                        stepCount++;
-                }
-            }
-        }
-
-        private void DisplayVar(string? labelName)
-        {
-            if (string.IsNullOrEmpty(labelName))
-                return;
-            else
-            {
-                switch (labelName)
-                {
-                    case "Variables":
-                        if (orderChecker.Variables != null)
-                        {
-                            List<string> items = new List<string>();
-                            foreach (Variable var in orderChecker.Variables)
-                            {
-                                string item = $"{var.name.Remove(0, 1)} : {var.val}";
-                                items.Add(item);
-                            }
-                            listbInfoData.ItemsSource = items;
-                        }
-                        break;
-                    case "Positions Platforme":
-                        if (hexapode != null)
-                        {
-                            List<string> items = new List<string>()
-                            {
-                                "x : " + hexapode.X.ToString(),
-                                "y : " + hexapode.Y.ToString(),
-                                "z : " + hexapode.Z.ToString(),
-                                "yaw : " + hexapode.yaw.ToString(),
-                                "pitch : " + hexapode.pitch.ToString(),
-                                "roll : " + hexapode.roll.ToString()
-                            };
-                            listbInfoData.ItemsSource = items;
-                        }
-                        break;
-                    case "Target Positions":
-                        if (orderChecker.targetPos != null)
-                        {
-                            List<string> items = new List<string>()
-                            {
-                                "x : " + orderChecker.targetPos[0].ToString(),
-                                "y : " + orderChecker.targetPos[1].ToString(),
-                                "z : " + orderChecker.targetPos[2].ToString(),
-                                "yaw : " + orderChecker.targetPos[3].ToString(),
-                                "pitch : " + orderChecker.targetPos[4].ToString(),
-                                "roll : " + orderChecker.targetPos[5].ToString()
-                            };
-                            listbInfoData.ItemsSource = items;
-                        }
-                        break;
-                    case "Legs":
-                        if (hexapode.lengthVer != null)
-                        {
-                            List<string> items = new List<string>();
-                            for (int i = 0; i < hexapode.lengthVer.Count(); i++)
-                            {
-                                items.Add($"leg {i} : {hexapode.lengthVer[i]:0.000}");
-                            }
-                            listbInfoData.ItemsSource = items;
-                        }
-                        break;
-                }
-            }
-        }
-        public void SendPos()
-        {
-            string data = hexapode.GetData();
-            if (data != null && data != "0.000,0.000,0.000,0.000,0.000,0.000")
-            {
-                using (StreamWriter sw = File.AppendText(@"./Debug.csv"))
-                    sw.WriteLine($"{time};{data.Replace(",", ";")};{hexapode.X};{hexapode.Y};{hexapode.Z};{hexapode.yaw};{hexapode.pitch};{hexapode.roll}");
-                serialClient.SendData(data); // envoie des data à l'arduino
-            }
-        }
-        private void Interpolate(double[] actualPos, double[] targetPos, int nbStep)
-        {
-            for (int i = 0;i < 6; i++)
-                deltaPos[i] = (targetPos[i] - actualPos[i]) / nbStep;
-        }
-        private void CheckCode()
-        {
-            while (!orderChecker.running && lineIndex < lines.Count())
-            {
-                if (lines[lineIndex][0] != '#')
-                    Parsing(lines[lineIndex]);
-                lineIndex++;
-            }
-            if (orderChecker.running)
-            {
-                var result = MessageBoxResult.Yes;
-                if (orderChecker.NormalizeTargetPos(limitPosPlus, limitPosMinus))
-                    result = MessageBox.Show($"Warning : Work area overrun.\r Do you want to stop the program ?", "Alert", MessageBoxButton.YesNo);
-                if (result == MessageBoxResult.No)
-                {
-                    Interpolate(actPos, orderChecker.targetPos, nbStep);
-                    running = true;
-                }
-                else
-                    Restart();
-            }
-        }
-        private void Parsing(string line)
-        {
-            //Verification du 1er mot de la ligne
-            string[] words = line.Replace("\r", string.Empty).Replace("\n", string.Empty).Replace("\t", string.Empty).Split(' ');
-            
-            foreach (string word in words)
-                if (word.Contains(" ") && word.Length <= 1 || word == string.Empty && word.Length <= 1)
-                    words = words.Where(w => w != word).ToArray();
-                //else if (word.Contains(" ") && word.Length > 1)
-                //    word.Replace(" ", string.Empty);
-
-            orderChecker.OrderCheck(words, lineIndex);
-
-            if (orderChecker.curIndex != lineIndex)
-            {
-                lineIndex = orderChecker.curIndex;
-            }
         }
         private void ConfigIni()
         {
@@ -267,7 +114,6 @@ namespace language_prog_simu_6DOF
                                 actPos[i] = double.Parse(result[1].Split(',')[i]);
                                 startPos[i] = double.Parse(result[1].Split(',')[i]);
                             }
-                                
                             break;
                         case "limitPosPlus":
                             for (int i = 0; i < 6; i++)
@@ -276,6 +122,12 @@ namespace language_prog_simu_6DOF
                         case "limitPosMinus":
                             for (int i = 0; i < 6; i++)
                                 limitPosMinus[i] = double.Parse(result[1].Split(',')[i]);
+                            break;
+                        case "legsLimitPlus":
+                            legslimitPlus = double.Parse(result[1]);
+                            break;
+                        case "legsLimitMinus":
+                            legslimitMinus = double.Parse(result[1]);
                             break;
                         case "portSpeed":
                             portSpeed = int.Parse(result[1]);
@@ -306,11 +158,229 @@ namespace language_prog_simu_6DOF
 
             serialClient = new SerialClient(port, portSpeed);
         }
-        private void btnRestart_Click(object sender, RoutedEventArgs e)
+        private void DisplayVar(string? labelName)
         {
-            Restart();
+            if (string.IsNullOrEmpty(labelName))
+                return;
+            else
+            {
+                switch (labelName)
+                {
+                    case "Variables":
+                        if (orderChecker.Variables != null)
+                        {
+                            List<string> items = new List<string>();
+                            foreach (Variable var in orderChecker.Variables)
+                            {
+                                string item = $"{var.name.Remove(0, 1)} : {var.val}";
+                                items.Add(item);
+                            }
+                            listbInfoData.ItemsSource = items;
+                        }
+                        break;
+                    case "Positions Platforme":
+                        if (hexapode != null)
+                        {
+                            List<string> items = new List<string>()
+                            {
+                                "x : " + hexapode.X.ToString(),
+                                "y : " + hexapode.Y.ToString(),
+                                "z : " + hexapode.Z.ToString(),
+                                "yaw : " + hexapode.yaw.ToString(),
+                                "pitch : " + hexapode.pitch.ToString(),
+                                "roll : " + hexapode.roll.ToString()
+                            };
+                            listbInfoData.ItemsSource = items;
+                        }
+                        break;
+                    case "Target Positions":
+                        if (orderChecker.targetPos != null)
+                        {
+                            string delta = "\x2206";
+                            List<string> items = new List<string>()
+                            {
+                                "x : " + orderChecker.targetPos[0].ToString() + " --> " + "\x2206" + (orderChecker.targetPos[0]-hexapode.GetPos()[0]).ToString(),
+                                "y : " + orderChecker.targetPos[1].ToString() + " --> " + "\x2206" + (orderChecker.targetPos[1]-hexapode.GetPos()[1]).ToString(),
+                                "z : " + orderChecker.targetPos[2].ToString() + " --> " + "\x2206" + (orderChecker.targetPos[2]-hexapode.GetPos()[2]).ToString(),
+                                "yaw : " + orderChecker.targetPos[3].ToString() + " --> " + "\x2206" + (orderChecker.targetPos[3]-hexapode.GetPos()[3]).ToString(),
+                                "pitch : " + orderChecker.targetPos[4].ToString() + " --> " + "\x2206" + (orderChecker.targetPos[4]-hexapode.GetPos()[4]).ToString(),
+                                "roll : " + orderChecker.targetPos[5].ToString() + " --> " + "\x2206" + (orderChecker.targetPos[5]-hexapode.GetPos()[5]).ToString()
+                            };
+                            listbInfoData.ItemsSource = items;
+                        }
+                        break;
+                    case "Legs":
+                        if (hexapode.lengthVer != null)
+                        {
+                            List<string> items = new List<string>();
+                            for (int i = 0; i < hexapode.lengthVer.Count(); i++)
+                            {
+                                items.Add($"leg {i} : {hexapode.lengthVer[i]:0.000}");
+                            }
+                            listbInfoData.ItemsSource = items;
+                        }
+                        break;
+                }
+            }
         }
+        private void _timer_Tick(object? sender, EventArgs e)
+        {
+            DisplayVar(cbInfoDisplay.Text);
+            tbStepSec.Text = nbStep.ToString();
 
+            _timer.Interval = TimeSpan.FromMilliseconds(timerTick / speed);
+
+            if (orderChecker.error)
+                Restart();
+
+            if (serialClient.GetIsConnected())
+            {
+                if (running)
+                {
+                    hexapode.X += deltaPos[0];
+                    hexapode.Y += deltaPos[1];
+                    hexapode.Z += deltaPos[2];
+                    hexapode.yaw += deltaPos[3];
+                    hexapode.pitch += deltaPos[4];
+                    hexapode.roll += deltaPos[5];
+                    Debug.WriteLine(DateTime.Now - dt1);
+
+                    if (stepCount == nbStep * orderChecker.runningTime)
+                    {
+                        running = false;
+                        orderChecker.running = false;
+                        stepCount = 1;
+                        actPos = hexapode.GetPos();
+                        CheckCode();
+                    }
+                    else
+                        stepCount++;
+                }
+
+                hexapode.CalculPosHexapode();
+                SendPos();
+                hexapode.Update();
+                //Debug.WriteLine($"x : {hexapode.X}, y : {hexapode.Y}, z : {hexapode.Z}, yaw : {hexapode.yaw}, pitch : {hexapode.pitch}, roll : {hexapode.roll}");
+            }
+        }
+        private void SendPos()
+        {
+            string data = hexapode.GetData();
+            bool flag = false;
+            StringBuilder sb = new StringBuilder();
+
+            //TODO : Test de data
+            double[] legs = new double[6];
+            for (int i = 0; i < 6; i++)
+                legs[i] = double.Parse(data.Split(',')[i]);
+
+            for (int i = 0; i < 6; i++)
+            {
+                if (legs[i] > legslimitPlus)
+                {
+                    legs[i] = legslimitPlus;
+                    flag = true;
+                }
+                else if (legs[i] < legslimitMinus)
+                {
+                    legs[i] = legslimitMinus;
+                    flag = true;
+                }
+                sb.Append(legs[i].ToString());
+                if (i != 5)
+                    sb.Append(',');
+            }
+            data = sb.ToString();
+            Debug.WriteLine(data);
+
+            if (flag)
+            {
+                var result = MessageBoxResult.No;
+                result = MessageBox.Show($"Warning : Work area overrun.\r Do you want to stop the program ?", "Alert", MessageBoxButton.YesNo);
+                if (result == MessageBoxResult.No)
+                {
+                    SendData(data);
+                }
+                else
+                    Restart();
+            }
+            else
+            {
+                SendData(data);
+            }
+        }
+        private void SendData(string data)
+        {
+            if (data != null && data != "0.000,0.000,0.000,0.000,0.000,0.000")
+            {
+                using (StreamWriter sw = File.AppendText(@"./Debug.csv"))
+                    sw.WriteLine($"{DateTime.Now - dt1};{data.Replace(",", ";")};{hexapode.X};{hexapode.Y};{hexapode.Z};{hexapode.yaw};{hexapode.pitch};{hexapode.roll}");
+                serialClient.SendData(data); // envoie des data à l'arduino
+            }
+        }
+        private void Interpolate(double[] actualPos, double[] targetPos, int nbStep, int time)
+        {
+            for (int i = 0;i < 6; i++)
+                deltaPos[i] = (targetPos[i] - actualPos[i]) / (nbStep * time);
+            _timer.Interval = TimeSpan.FromMilliseconds(timerTick = 1000 / nbStep);
+
+        }
+        private void CheckCode()
+        {
+            while (!orderChecker.running && lineIndex < lines.Count())
+            {
+                if (lines[lineIndex][0] != '#')
+                    Parsing(lines[lineIndex]);
+                lineIndex++;
+            }
+            if (orderChecker.running)
+            {
+                var result = MessageBoxResult.No;
+                if (orderChecker.NormalizeTargetPos(limitPosPlus, limitPosMinus))
+                    result = MessageBox.Show($"Warning : Work area overrun.\r Do you want to stop the program ?", "Alert", MessageBoxButton.YesNo);
+                if (result == MessageBoxResult.No)
+                {
+                    Interpolate(actPos, orderChecker.targetPos, nbStep, orderChecker.runningTime);
+                    dt1 = DateTime.Now;
+                    running = true;
+                }
+                else
+                    Restart();
+            }
+        }
+        private void Parsing(string line)
+        {
+            //Verification du 1er mot de la ligne
+            string[] words = line.Replace("\r", string.Empty).Replace("\n", string.Empty).Replace("\t", string.Empty).Split(' ');
+            
+            foreach (string word in words)
+                if (word.Contains(" ") && word.Length <= 1 || word == string.Empty && word.Length <= 1)
+                    words = words.Where(w => w != word).ToArray();
+                //else if (word.Contains(" ") && word.Length > 1)
+                //    word.Replace(" ", string.Empty);
+
+            orderChecker.OrderCheck(words, lineIndex);
+
+            if (orderChecker.curIndex != lineIndex)
+            {
+                lineIndex = orderChecker.curIndex;
+            }
+        }
+        private void SaveAs(string path, string filter, string ext)
+        {
+            Directory.CreateDirectory(path);
+
+            SaveFileDialog dlg = new SaveFileDialog();
+            dlg.Filter = filter + "|*" + ext;
+            dlg.InitialDirectory = path;
+            dlg.DefaultExt = ext;
+            dlg.FileName = DateTime.Now.ToString("MM-dd-yyyy H:mm");
+            if (dlg.ShowDialog() == true)
+            {
+                File.WriteAllText(dlg.FileName, tbCodeZone.Text);
+                pathFile = dlg.FileName;
+            }
+        }
         private void Restart()
         {
             serialClient.Close();
@@ -320,7 +390,10 @@ namespace language_prog_simu_6DOF
             serialClient.Open();
             //tbCodeZone.Text = ""; //a voire
         }
-
+        private void btnRestart_Click(object sender, RoutedEventArgs e)
+        {
+            Restart();
+        }
         private void btnRun_Click(object sender, RoutedEventArgs e)
         {
             lines = tbCodeZone.Text.Split('\n');
@@ -330,53 +403,47 @@ namespace language_prog_simu_6DOF
                 orderChecker.CreateLabel(lines[i].Split(' '), i);
             CheckCode();
         }
-
         private void slSpeed_ValueChanged(object sender, RoutedPropertyChangedEventArgs<double> e)
         {
             speed = e.NewValue;
         }
-
         private void btnDecrease_Click(object sender, RoutedEventArgs e)
         {
             nbStep--;
         }
-
         private void btnIncrease_Click(object sender, RoutedEventArgs e)
         {
             nbStep++;
         }
-
         private void cbInfoDisplay_SelectionChanged(object sender, SelectionChangedEventArgs e)
         {
 
         }
-
         private void miSave_Click(object sender, RoutedEventArgs e)
         {
-            
-        }
-
-        private void miSaveAs_Click(object sender, RoutedEventArgs e)
-        {
-            SaveAs();
-        }
-
-        private void SaveAs()
-        {
-            string path = Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments) + "\\Sim Files";
-
-            Directory.CreateDirectory(path);
-
-            SaveFileDialog dlg = new SaveFileDialog();
-            dlg.Filter = "simulator file(*.sim)|*.sim";
-            dlg.InitialDirectory = path;
-            dlg.DefaultExt = ".sim";
-            if (dlg.ShowDialog() == true)
+            if (File.Exists(pathFile))
             {
-                File.WriteAllText(dlg.FileName, tbCodeZone.Text);
+                using (StreamWriter sw = File.CreateText(pathFile))
+                {
+                    foreach (var line in tbCodeZone.Text.Split('\n'))
+                        sw.WriteLine(line.ToString());
+                }
+            }
+            else
+            {
+                string filter = "simulator file(*.sim)";
+                string ext = ".sim";
+                string path = Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments) + "\\Sim Files";
+                SaveAs(path, filter, ext);
             }
         }
-
+        private void miSaveAs_Click(object sender, RoutedEventArgs e)
+        {
+            string filter = "simulator file(*.sim)";
+            string ext = ".sim";
+            string path = Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments) + "\\Sim Files";
+            SaveAs(path, filter, ext);
+        }
         private void miOpen_Click(object sender, RoutedEventArgs e)
         {
             string path = Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments) + "\\Sim Files";
@@ -388,17 +455,55 @@ namespace language_prog_simu_6DOF
             if (ofd.ShowDialog() == true)
             {
                 tbCodeZone.Text = File.ReadAllText(ofd.FileName);
+                pathFile = ofd.FileName;
             }
         }
-
+        private void miExportCSV_Click(object sender, RoutedEventArgs e)
+        {
+            string filter = "CSV (*.csv)";
+            string ext = ".csv";
+            string path = Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments) + "\\Sim Files";
+            SaveAs(path, filter, ext);
+        }
         private void miStep_Click(object sender, RoutedEventArgs e)
         {
 
         }
-
         private void miStepLine_Click(object sender, RoutedEventArgs e)
         {
 
+        }
+        private void CtrShortcut_S(object sender, ExecutedRoutedEventArgs e)
+        {
+            if (File.Exists(pathFile))
+            {
+                using (StreamWriter sw = File.CreateText(pathFile))
+                {
+                    foreach (var line in tbCodeZone.Text.Split('\n'))
+                        sw.WriteLine(line.ToString());
+                }
+            }
+            else
+            {
+                string filter = "simulator file(*.sim)";
+                string ext = ".sim";
+                string path = Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments) + "\\Sim Files";
+                SaveAs(path, filter, ext);
+            }
+        }
+        private void CtrShortcut_O(object sender, ExecutedRoutedEventArgs e)
+        {
+            string path = Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments) + "\\Sim Files";
+
+            OpenFileDialog ofd = new OpenFileDialog();
+            ofd.Filter = "simulator file(*.sim)|*.sim";
+            ofd.Multiselect = false;
+            ofd.InitialDirectory = path;
+            if (ofd.ShowDialog() == true)
+            {
+                tbCodeZone.Text = File.ReadAllText(ofd.FileName);
+                pathFile = ofd.FileName;
+            }
         }
     }
 }

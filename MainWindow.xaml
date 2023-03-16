@@ -6,6 +6,20 @@
         xmlns:local="clr-namespace:language_prog_simu_6DOF"
         mc:Ignorable="d"
         Title="MainWindow" Height="500" Width="700">
+    <Window.Resources>
+        <ResourceDictionary>
+            <RoutedUICommand x:Key="CtrS" Text="Save" />
+            <RoutedUICommand x:Key="CtrO" Text="Open" />
+        </ResourceDictionary>
+    </Window.Resources>
+    <Window.InputBindings>
+        <KeyBinding Key="S" Modifiers="Ctrl" Command="{StaticResource CtrS}"/>
+        <KeyBinding Key="O" Modifiers="Ctrl" Command="{StaticResource CtrO}"/>
+    </Window.InputBindings>
+    <Window.CommandBindings>
+        <CommandBinding Command="{StaticResource CtrS}" Executed="CtrShortcut_S" />
+        <CommandBinding Command="{StaticResource CtrO}" Executed="CtrShortcut_O" />
+    </Window.CommandBindings>
     <Grid>
         <Grid.RowDefinitions>
             <RowDefinition Height="0.5*"/>
@@ -23,9 +37,10 @@
         <DockPanel VerticalAlignment="Top" HorizontalAlignment="Left" Grid.Column="0" Grid.Row="0">
             <Menu DockPanel.Dock="Top">
                 <MenuItem Header="File">
-                    <MenuItem x:Name="miSave" Header="Save" Click="miSave_Click"/>
+                    <MenuItem x:Name="miSave" Header="Save" Click="miSave_Click" InputGestureText="Ctrl+S"/>
                     <MenuItem x:Name="miSaveAs" Header="Save As" Click="miSaveAs_Click"/>
-                    <MenuItem x:Name="miOpen" Header="Open" Click="miOpen_Click"/>
+                    <MenuItem x:Name="miOpen" Header="Open" Click="miOpen_Click" InputGestureText="Ctrl+O"/>
+                    <MenuItem x:Name="miExportCSV" Header="Export data" Click="miExportCSV_Click"/>
                 </MenuItem>
                 <MenuItem Header="Debug">
                     <MenuItem x:Name="miStep" Header="Step" Click="miStep_Click"/>
@@ -42,7 +57,7 @@
 
 
         <Label x:Name="lbStepSec" Content="Step/sec" HorizontalAlignment="Center" Margin="0,175,0,0" VerticalAlignment="Top" Grid.Column="0" Grid.Row="2"/>
-        <TextBox x:Name="tbStepSec" HorizontalAlignment="Center" Margin="0,200,30,0" Text="10" TextAlignment="Center" TextWrapping="Wrap" VerticalAlignment="Top" Height="20" Width="45" Grid.Column="0" Grid.Row="2"/>
+        <TextBox x:Name="tbStepSec" HorizontalAlignment="Center" Margin="0,200,30,0" Text="2" TextAlignment="Center" IsHitTestVisible="False" TextWrapping="Wrap" VerticalAlignment="Top" Height="20" Width="45" Grid.Column="0" Grid.Row="2"/>
         <StackPanel Orientation="Vertical" HorizontalAlignment="Center" VerticalAlignment="Top" Margin="30,200,0,0" Height="20" Width="20" Grid.Column="0" Grid.Row="2">
             <Button x:Name="btnIncrease" Click="btnIncrease_Click">
                 <Image Source="images/arrow_up.png" Height="6" Width="5"/>

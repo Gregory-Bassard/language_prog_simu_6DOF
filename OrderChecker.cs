@@ -23,6 +23,7 @@ namespace language_prog_simu_6DOF
         public int curIndex;
 
         public double[] targetPos = new double[6];
+        public double[] initPos = new double[6];
 
         public double[] limitsPos = new double[6]; //x, y, z, yaw, pitch, roll
 
@@ -251,7 +252,7 @@ namespace language_prog_simu_6DOF
 
                 case "RESET":
                     for (int i = 0; i < 6; i++)
-                        targetPos[i] = 0;
+                        targetPos[i] = initPos[i];
                     break;
 
                 case "RUN":

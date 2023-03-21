@@ -34,6 +34,8 @@ namespace language_prog_simu_6DOF
         public DateTime dt1 = DateTime.Now;
         private bool running = false;
 
+        private bool stepMode = false;
+
         private OrderChecker orderChecker;
         private Hexapode hexapode;
         private SerialClient serialClient;
@@ -155,7 +157,12 @@ namespace language_prog_simu_6DOF
             hexapode.height = height;
             hexapode.centreRotation.Z = height;
 
-            orderChecker.targetPos = startPos;
+            for (int i = 0; i < 6; i++)
+            {
+                orderChecker.targetPos[i] = startPos[i];
+                orderChecker.initPos[i] = startPos[i];
+            }
+            
 
             serialClient = new SerialClient(port, portSpeed);
         }
@@ -243,39 +250,37 @@ namespace language_prog_simu_6DOF
                         else
                             label.Background = Brushes.Transparent;
 
-
                 if (running)
                 {
-                    hexapode.X += deltaPos[0];
-                    hexapode.Y += deltaPos[1];
-                    hexapode.Z += deltaPos[2];
-                    hexapode.yaw += deltaPos[3];
-                    hexapode.pitch += deltaPos[4];
-                    hexapode.roll += deltaPos[5];
-                    Debug.WriteLine(DateTime.Now - dt1);
-
-                    if (stepCount == nbStep * orderChecker.runningTime)
+                    if (stepMode)
                     {
-                        running = false;
-                        orderChecker.running = false;
-                        stepCount = 1;
-                        actPos = hexapode.GetPos();
-                        if (btnRun.Content.ToString() == "Run") 
-                            CheckCode();
-                        //else if (btnRun.Content.ToString() == "Next")
-                        //    if (lineIndex + 1 >= lines.Length)
-                        //    {
-                        //        btnRun.Content = "Run";
-
-                        //        tbCodeZone.Visibility = Visibility.Visible;
-                        //        spLabelsList.Visibility = Visibility.Hidden;
-
-                        //        miStep.IsEnabled = true;
-                        //        miStepLine.IsEnabled = true;
-                        //    }
+                        lbStepCounter.Content = $"{stepCount - 1}/{nbStep * orderChecker.runningTime} Steps";
+                        btnRun.Content = "Next Step";
                     }
                     else
-                        stepCount++;
+                    {
+                        hexapode.X += deltaPos[0];
+                        hexapode.Y += deltaPos[1];
+                        hexapode.Z += deltaPos[2];
+                        hexapode.yaw += deltaPos[3];
+                        hexapode.pitch += deltaPos[4];
+                        hexapode.roll += deltaPos[5];
+                        Debug.WriteLine(DateTime.Now - dt1);
+
+                        if (stepCount == nbStep * orderChecker.runningTime)
+                        {
+                            running = false;
+                            orderChecker.running = false;
+                            stepCount = 1;
+                            actPos = hexapode.GetPos();
+                            if (btnRun.Content.ToString() == "Run")
+                                CheckCode();
+                            else if (btnRun.Content.ToString() == "Next" && lineIndex >= lines.Count())
+                                Restart();
+                        }
+                        else
+                            stepCount++;
+                    }
                 }
 
                 hexapode.CalculPosHexapode();
@@ -348,11 +353,13 @@ namespace language_prog_simu_6DOF
         }
         private void CheckCode()
         {
-            while (!orderChecker.running && lineIndex < lines.Count() && lines[0] != null)
+            while (!orderChecker.running && lineIndex < lines.Count() && lines[lineIndex] != null)
             {
-                if (lines[lineIndex][0] != '#')
-                    Parsing(lines[lineIndex]);
+                if (lines[lineIndex] != "")
+                    if (lines[lineIndex][0] != '#')
+                        Parsing(lines[lineIndex]);
                 lineIndex++;
+
             }
             if (orderChecker.running)
             {
@@ -371,11 +378,15 @@ namespace language_prog_simu_6DOF
         }
         private void CheckDebugCode()
         {
-            if (!orderChecker.running && lineIndex < lines.Count() && lines[0] != null)
+            if (!orderChecker.running && lineIndex < lines.Count() && lines[lineIndex] != null)
             {
-                while (lines[lineIndex][0] == '#')
-                    lineIndex++;
-                Parsing(lines[lineIndex]);
+                try
+                {
+                    while (lines[lineIndex][0] == '#')
+                        lineIndex++;
+                    Parsing(lines[lineIndex]);
+                }
+                catch { }
             }
             if (orderChecker.running)
             {
@@ -435,7 +446,17 @@ namespace language_prog_simu_6DOF
             serialClient.Open();
             deltaPos = new double[6];
             running = false;
-            btnRun.Content = "Run";
+            stepCount = 1;
+            if (stepMode)
+            {
+                btnRun.Content = "Run Step Mode";
+                lbStepCounter.Content = $"{stepCount - 1}/{nbStep * orderChecker.runningTime} Steps";
+            }
+            else
+            {
+                btnRun.Content = "Run";
+                lbStepCounter.Visibility = Visibility.Hidden;
+            }
 
             tbCodeZone.Visibility = Visibility.Visible;
             spLabelsList.Visibility = Visibility.Hidden;
@@ -450,7 +471,7 @@ namespace language_prog_simu_6DOF
         }
         private void btnRun_Click(object sender, RoutedEventArgs e)
         {
-            if (btnRun.Content.ToString() == "Run")
+            if (btnRun.Content.ToString() == "Run" || btnRun.Content.ToString() == "Run Step Mode")
             {
                 lines = tbCodeZone.Text.Split('\n');
                 lineIndex = 0;
@@ -474,6 +495,41 @@ namespace language_prog_simu_6DOF
                 }
                 else
                     lineIndex++;
+            }
+            else if (btnRun.Content.ToString() == "Next Step" && running)
+            {
+                hexapode.X += deltaPos[0];
+                hexapode.Y += deltaPos[1];
+                hexapode.Z += deltaPos[2];
+                hexapode.yaw += deltaPos[3];
+                hexapode.pitch += deltaPos[4];
+                hexapode.roll += deltaPos[5];
+                Debug.WriteLine(DateTime.Now - dt1);
+
+                if (stepCount == nbStep * orderChecker.runningTime)
+                {
+                    running = false;
+                    orderChecker.running = false;
+                    stepCount = 1;
+                    actPos = hexapode.GetPos();
+                    if (lineIndex < lines.Count())
+                        CheckCode();
+                    else
+                    {
+                        stepMode = false;
+                        miStep.IsChecked = false;
+                        miStepLine.IsEnabled = true;
+                        lbStepCounter.Visibility = Visibility.Hidden;
+                        btnRun.Content = "Run";
+                    }
+                }
+                else
+                    stepCount++;
+
+                hexapode.CalculPosHexapode();
+                SendPos();
+                hexapode.Update();
+
             }
         }
         private void slSpeed_ValueChanged(object sender, RoutedPropertyChangedEventArgs<double> e)
@@ -540,7 +596,22 @@ namespace language_prog_simu_6DOF
         }
         private void miStep_Click(object sender, RoutedEventArgs e)
         {
+            stepMode = !stepMode;
 
+            miStep.IsChecked = stepMode;
+
+            if (miStep.IsChecked)
+            {
+                lbStepCounter.Visibility = Visibility.Visible;
+                btnRun.Content = "Run Step Mode";
+                miStepLine.IsEnabled = false;
+            }
+            else
+            {
+                lbStepCounter.Visibility = Visibility.Hidden;
+                btnRun.Content = "Run";
+                miStepLine.IsEnabled = true;
+            }
         }
         private void miStepLine_Click(object sender, RoutedEventArgs e)
         {
@@ -580,7 +651,7 @@ namespace language_prog_simu_6DOF
                 using (StreamWriter sw = File.CreateText(pathFile))
                 {
                     foreach (var line in tbCodeZone.Text.Split('\n'))
-                        sw.WriteLine(line.ToString());
+                        sw.WriteLine(line.ToString().Trim());
                 }
             }
             else

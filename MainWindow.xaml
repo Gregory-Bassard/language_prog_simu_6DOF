@@ -43,14 +43,15 @@
                     <MenuItem x:Name="miExportCSV" Header="Export data" Click="miExportCSV_Click"/>
                 </MenuItem>
                 <MenuItem Header="Debug">
-                    <MenuItem x:Name="miStep" Header="Step" Click="miStep_Click"/>
+                    <MenuItem x:Name="miStep" IsCheckable="True" Header="Step" Click="miStep_Click"/>
                     <MenuItem x:Name="miStepLine" Header="Step Line" Click="miStepLine_Click"/>
                 </MenuItem>
             </Menu>
         </DockPanel>
 
         <Button x:Name="btnRestart" Content="Restart" HorizontalAlignment="Center" VerticalAlignment="Bottom" Width="60" Grid.Column="0" Grid.Row="1" Click="btnRestart_Click"/>
-        <Button x:Name="btnRun" Content="Run" HorizontalAlignment="Center" VerticalAlignment="Bottom" Width="60" Grid.Column="1" Grid.Row="1" Click="btnRun_Click"/>
+        <Label x:Name="lbStepCounter" Content="0/0 Steps" HorizontalAlignment="Left" VerticalAlignment="Bottom" Width="Auto" Grid.Column="1" Grid.Row="1" Margin="25,0,0,0" Visibility="Hidden"/>
+        <Button x:Name="btnRun" Content="Run" HorizontalAlignment="Center" VerticalAlignment="Bottom" Width="Auto" Grid.Column="1" Grid.Row="1" Click="btnRun_Click"/>
 
         <Label x:Name="lbSpeed" Content="Speed" HorizontalAlignment="Center" Margin="0,50,0,0" VerticalAlignment="Top" Grid.Column="0" Grid.Row="2"/>
         <Slider x:Name="slSpeed" HorizontalAlignment="Center" VerticalAlignment="Top" Width="150" Grid.Column="0" Grid.Row="2" Margin="0,75,0,0" Minimum="0.01" SmallChange="0.1" Value="1" ValueChanged="slSpeed_ValueChanged" Maximum="2"/>

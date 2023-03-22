@@ -545,6 +545,8 @@ namespace language_prog_simu_6DOF
         private void btnDecrease_Click(object sender, RoutedEventArgs e)
         {
             nbStep--;
+            if (nbStep < 1)
+                nbStep = 1;
         }
         private void btnIncrease_Click(object sender, RoutedEventArgs e)
         {

@@ -422,7 +422,7 @@ namespace language_prog_simu_6DOF
                 lineIndex = orderChecker.curIndex;
             }
         }
-        private void SaveAs(string path, string filter, string ext)
+        private void SaveAs(string path, string filter, string ext, bool csv = false)
         {
             Directory.CreateDirectory(path);
 
@@ -433,8 +433,14 @@ namespace language_prog_simu_6DOF
             dlg.FileName = DateTime.Now.ToString("MM-dd-yyyy HH-mm");
             if (dlg.ShowDialog() == true)
             {
-                File.WriteAllText(dlg.FileName, tbCodeZone.Text);
-                pathFile = dlg.FileName;
+                if (csv)
+                    using (StreamReader sr = File.OpenText(@"./Debug.csv"))
+                        File.WriteAllText(dlg.FileName, sr.ReadToEnd());
+                else
+                {
+                    File.WriteAllText(dlg.FileName, tbCodeZone.Text);
+                    pathFile = dlg.FileName;
+                }
             }
         }
         private void Restart()
@@ -592,7 +598,7 @@ namespace language_prog_simu_6DOF
             string filter = "CSV (*.csv)";
             string ext = ".csv";
             string path = Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments) + "\\Sim Files";
-            SaveAs(path, filter, ext);
+            SaveAs(path, filter, ext, true);
         }
         private void miStep_Click(object sender, RoutedEventArgs e)
         {

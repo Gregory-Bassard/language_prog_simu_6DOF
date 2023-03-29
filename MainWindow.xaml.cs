@@ -64,6 +64,7 @@ namespace language_prog_simu_6DOF
 
         public MainWindow()
         {
+            //Test
             InitializeComponent();
 
             using (StreamWriter sw = File.CreateText(@"./Debug.csv"))

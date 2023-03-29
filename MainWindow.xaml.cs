@@ -36,8 +36,12 @@ namespace language_prog_simu_6DOF
 
         private bool stepMode = false;
 
+        private bool usingSerial = false;
+        private bool usingOpcUa = false;
+
         private OrderChecker orderChecker;
         private Hexapode hexapode;
+        private OpcUaClient opcUaClient;
         private SerialClient serialClient;
 
         private string[] lines = new string[50];
@@ -64,7 +68,6 @@ namespace language_prog_simu_6DOF
 
         public MainWindow()
         {
-            //Test
             InitializeComponent();
 
             using (StreamWriter sw = File.CreateText(@"./Debug.csv"))
@@ -84,7 +87,7 @@ namespace language_prog_simu_6DOF
             string[] confLines = System.IO.File.ReadAllLines(@"./Config.ini");
 
             int portSpeed = 0;
-            string port = "";
+            string port = "", serverIp = "", serverPort = "", serverPath = "";
             double rayVerBase = 0.00, alphaBase = 0.00, betaBase = 0.00, rayVerPlat = 0.00, alphaPlat = 0.00, betaPlat = 0.00, height = 0.00;
             double[] startPos = new double[6];
 
@@ -133,18 +136,33 @@ namespace language_prog_simu_6DOF
                         case "legsLimitMinus":
                             legslimitMinus = double.Parse(result[1]);
                             break;
+                        case "serverIp":
+                            serverIp = result[1];
+                            break;
+                        case "serverPort":
+                            serverPort = result[1];
+                            break;
+                        case "serverPath":
+                            serverPath = result[1];
+                            break;
+                        case "usingOpcUaConnection":
+                            usingOpcUa = bool.Parse(result[1]);
+                            break;
                         case "portSpeed":
                             portSpeed = int.Parse(result[1]);
                             break;
                         case "port":
                             port = result[1];
                             break;
+                        case "usingSerialConnection":
+                            usingSerial = bool.Parse(result[1]);
+                            break;
                     }
                 }
             }
-            Init(portSpeed, port, rayVerBase, alphaBase, betaBase, rayVerPlat, alphaPlat, betaPlat, height, startPos);
+            Init(portSpeed, port, rayVerBase, alphaBase, betaBase, rayVerPlat, alphaPlat, betaPlat, height, startPos, serverIp, serverPort, serverPath);
         }
-        private void Init(int portSpeed, string port, double rayVerBase, double alphaBase, double betaBase, double rayVerPlat, double alphaPlat, double betaPlat, double height, double[] startPos)
+        private void Init(int portSpeed, string port, double rayVerBase, double alphaBase, double betaBase, double rayVerPlat, double alphaPlat, double betaPlat, double height, double[] startPos, string serverIp, string serverPort, string serverPath)
         {
             orderChecker = new OrderChecker();
             hexapode = new Hexapode(startPos);
@@ -164,8 +182,10 @@ namespace language_prog_simu_6DOF
                 orderChecker.initPos[i] = startPos[i];
             }
             
-
-            serialClient = new SerialClient(port, portSpeed);
+            if (usingOpcUa)
+                opcUaClient = new OpcUaClient(serverIp, serverPort, serverPath);
+            if (usingSerial)
+                serialClient = new SerialClient(port, portSpeed);
         }
         private void DisplayVar(string? labelName)
         {
@@ -242,53 +262,50 @@ namespace language_prog_simu_6DOF
             if (orderChecker.error)
                 Restart();
 
-            if (serialClient.GetIsConnected())
-            {
-                if (btnRun.Content.ToString() == "Next")
-                    foreach (Label label in spLabelsList.Children)
-                        if (label.Name == $"lb{lineIndex}")
-                            label.Background = Brushes.Beige;
-                        else
-                            label.Background = Brushes.Transparent;
+            if (btnRun.Content.ToString() == "Next")
+                foreach (Label label in spLabelsList.Children)
+                    if (label.Name == $"lb{lineIndex}")
+                        label.Background = Brushes.Beige;
+                    else
+                        label.Background = Brushes.Transparent;
 
-                if (running)
+            if (running)
+            {
+                if (stepMode)
                 {
-                    if (stepMode)
+                    lbStepCounter.Content = $"{stepCount - 1}/{nbStep * orderChecker.runningTime} Steps";
+                    btnRun.Content = "Next Step";
+                }
+                else
+                {
+                    hexapode.X += deltaPos[0];
+                    hexapode.Y += deltaPos[1];
+                    hexapode.Z += deltaPos[2];
+                    hexapode.yaw += deltaPos[3];
+                    hexapode.pitch += deltaPos[4];
+                    hexapode.roll += deltaPos[5];
+                    Debug.WriteLine(DateTime.Now - dt1);
+
+                    if (stepCount == nbStep * orderChecker.runningTime)
                     {
-                        lbStepCounter.Content = $"{stepCount - 1}/{nbStep * orderChecker.runningTime} Steps";
-                        btnRun.Content = "Next Step";
+                        running = false;
+                        orderChecker.running = false;
+                        stepCount = 1;
+                        actPos = hexapode.GetPos();
+                        if (btnRun.Content.ToString() == "Run")
+                            CheckCode();
+                        else if (btnRun.Content.ToString() == "Next" && lineIndex >= lines.Count())
+                            Restart();
                     }
                     else
-                    {
-                        hexapode.X += deltaPos[0];
-                        hexapode.Y += deltaPos[1];
-                        hexapode.Z += deltaPos[2];
-                        hexapode.yaw += deltaPos[3];
-                        hexapode.pitch += deltaPos[4];
-                        hexapode.roll += deltaPos[5];
-                        Debug.WriteLine(DateTime.Now - dt1);
-
-                        if (stepCount == nbStep * orderChecker.runningTime)
-                        {
-                            running = false;
-                            orderChecker.running = false;
-                            stepCount = 1;
-                            actPos = hexapode.GetPos();
-                            if (btnRun.Content.ToString() == "Run")
-                                CheckCode();
-                            else if (btnRun.Content.ToString() == "Next" && lineIndex >= lines.Count())
-                                Restart();
-                        }
-                        else
-                            stepCount++;
-                    }
+                        stepCount++;
                 }
-
-                hexapode.CalculPosHexapode();
-                SendPos();
-                hexapode.Update();
-                //Debug.WriteLine($"x : {hexapode.X}, y : {hexapode.Y}, z : {hexapode.Z}, yaw : {hexapode.yaw}, pitch : {hexapode.pitch}, roll : {hexapode.roll}");
             }
+
+            hexapode.CalculPosHexapode();
+            SendPos();
+            hexapode.Update();
+            //Debug.WriteLine($"x : {hexapode.X}, y : {hexapode.Y}, z : {hexapode.Z}, yaw : {hexapode.yaw}, pitch : {hexapode.pitch}, roll : {hexapode.roll}");
         }
         private void SendPos()
         {
@@ -342,7 +359,12 @@ namespace language_prog_simu_6DOF
             {
                 using (StreamWriter sw = File.AppendText(@"./Debug.csv"))
                     sw.WriteLine($"{DateTime.Now - dt1};{data.Replace(",", ";")};{hexapode.X};{hexapode.Y};{hexapode.Z};{hexapode.yaw};{hexapode.pitch};{hexapode.roll}");
-                serialClient.SendData(data); // envoie des data à l'arduino
+                if (usingSerial)
+                    serialClient.SendData(data); // envoie des data à l'arduino
+                if (usingOpcUa)
+                {
+                    //TODO :envoie des données
+                }
             }
         }
         private void Interpolate(double[] actualPos, double[] targetPos, int nbStep, int time)
@@ -446,11 +468,13 @@ namespace language_prog_simu_6DOF
         }
         private void Restart()
         {
-            serialClient.Close();
+            if(serialClient != null)
+                serialClient.Close();
             _timer.Stop();
             ConfigIni();
             _timer.Start();
-            serialClient.Open();
+            if (serialClient != null)
+                serialClient.Open();
             deltaPos = new double[6];
             running = false;
             stepCount = 1;

@@ -78,16 +78,27 @@ namespace language_prog_simu_6DOF
             _timer = new DispatcherTimer();
             _timer.Interval = TimeSpan.FromMilliseconds(100);
             _timer.Tick += _timer_Tick;
-            _timer.Start();
+            //_timer.Start();
 
-            serialClient.Open();
+            if (opcUaClient.Connect())
+            {
+                float newVal = 1000;
+                float[] simPos = new float[] { newVal, newVal, newVal, newVal, newVal, newVal };
+
+                opcUaClient.WriteObject("|var|CODESYS Softmotion RTE x64 .Application.Mouvement.rAcceleration", 4, simPos);
+
+                opcUaClient.WriteObject("|var|CODESYS Softmotion RTE x64 .Application.Mouvement.xMoveAll", 4, true);
+            }
+
+            if (usingSerial)
+                serialClient.Open();
         }
         private void ConfigIni()
         {
             string[] confLines = System.IO.File.ReadAllLines(@"./Config.ini");
 
             int portSpeed = 0;
-            string port = "", serverIp = "", serverPort = "", serverPath = "";
+            string port = "", serverPath = "";
             double rayVerBase = 0.00, alphaBase = 0.00, betaBase = 0.00, rayVerPlat = 0.00, alphaPlat = 0.00, betaPlat = 0.00, height = 0.00;
             double[] startPos = new double[6];
 
@@ -136,12 +147,6 @@ namespace language_prog_simu_6DOF
                         case "legsLimitMinus":
                             legslimitMinus = double.Parse(result[1]);
                             break;
-                        case "serverIp":
-                            serverIp = result[1];
-                            break;
-                        case "serverPort":
-                            serverPort = result[1];
-                            break;
                         case "serverPath":
                             serverPath = result[1];
                             break;
@@ -160,9 +165,9 @@ namespace language_prog_simu_6DOF
                     }
                 }
             }
-            Init(portSpeed, port, rayVerBase, alphaBase, betaBase, rayVerPlat, alphaPlat, betaPlat, height, startPos, serverIp, serverPort, serverPath);
+            Init(portSpeed, port, rayVerBase, alphaBase, betaBase, rayVerPlat, alphaPlat, betaPlat, height, startPos, serverPath);
         }
-        private void Init(int portSpeed, string port, double rayVerBase, double alphaBase, double betaBase, double rayVerPlat, double alphaPlat, double betaPlat, double height, double[] startPos, string serverIp, string serverPort, string serverPath)
+        private void Init(int portSpeed, string port, double rayVerBase, double alphaBase, double betaBase, double rayVerPlat, double alphaPlat, double betaPlat, double height, double[] startPos, string serverPath)
         {
             orderChecker = new OrderChecker();
             hexapode = new Hexapode(startPos);
@@ -183,7 +188,7 @@ namespace language_prog_simu_6DOF
             }
             
             if (usingOpcUa)
-                opcUaClient = new OpcUaClient(serverIp, serverPort, serverPath);
+                opcUaClient = new OpcUaClient(serverPath);
             if (usingSerial)
                 serialClient = new SerialClient(port, portSpeed);
         }
@@ -355,16 +360,24 @@ namespace language_prog_simu_6DOF
         }
         private void SendData(string data)
         {
+            if (usingSerial)
+                SerialDataSending(data);
+            if (usingOpcUa)
+                OpcUaRunnningPlatforme();
+        }
+        private void OpcUaRunnningPlatforme()
+        {
+            opcUaClient.WriteObject("|var|CODESYS Softmotion RTE x64 .Application.Mouvement.xMoveAll", 4, true);
+            opcUaClient.WriteObject("|var|CODESYS Softmotion RTE x64 .Application.Mouvement.xMoveAll", 4, false);
+        }
+        private void SerialDataSending(string data)
+        {
             if (data != null && data != "0.000,0.000,0.000,0.000,0.000,0.000")
             {
                 using (StreamWriter sw = File.AppendText(@"./Debug.csv"))
                     sw.WriteLine($"{DateTime.Now - dt1};{data.Replace(",", ";")};{hexapode.X};{hexapode.Y};{hexapode.Z};{hexapode.yaw};{hexapode.pitch};{hexapode.roll}");
                 if (usingSerial)
                     serialClient.SendData(data); // envoie des data à l'arduino
-                if (usingOpcUa)
-                {
-                    //TODO :envoie des données
-                }
             }
         }
         private void Interpolate(double[] actualPos, double[] targetPos, int nbStep, int time)
